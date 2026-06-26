@@ -322,12 +322,13 @@ class App(tk.Tk):
         n_pages = max(1, math.ceil(len(items) / per_page))
         state = {"p": 0}
 
+        # nav must be packed BEFORE content so expand=True doesn't steal its space
+        nav = tk.Frame(container, bg=PANEL, height=46)
+        nav.pack(side=tk.BOTTOM, fill=tk.X)
+        nav.pack_propagate(False)
+
         content = tk.Frame(container, bg=BG)
         content.pack(fill=tk.BOTH, expand=True)
-
-        nav = tk.Frame(container, bg=PANEL, height=46)
-        nav.pack(fill=tk.X)
-        nav.pack_propagate(False)
 
         def _prev():
             if state["p"] > 0:
@@ -576,7 +577,16 @@ class App(tk.Tk):
         outer = tk.Frame(self._area, bg=BG)
         outer.pack(fill=tk.BOTH, expand=True)
 
-        # ── output area ──────────────────────────────────────────────────────
+        # ── control bar (pack bottom-up so expand=True on txt_wrap doesn't hide them)
+        ctrl = tk.Frame(outer, bg=PANEL, height=36)
+        ctrl.pack(side=tk.BOTTOM, fill=tk.X)
+        ctrl.pack_propagate(False)
+
+        inp_frame = tk.Frame(outer, bg="#000000", height=40)
+        inp_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        inp_frame.pack_propagate(False)
+
+        # ── output area (fills remaining space above the two bottom bars) ──
         txt_wrap = tk.Frame(outer, bg="#000000")
         txt_wrap.pack(fill=tk.BOTH, expand=True)
 
@@ -604,10 +614,6 @@ class App(tk.Tk):
         txt.tag_configure("info", foreground=YELLOW)
 
         # ── stdin input bar ───────────────────────────────────────────────────
-        inp_frame = tk.Frame(outer, bg="#000000", height=40)
-        inp_frame.pack(fill=tk.X)
-        inp_frame.pack_propagate(False)
-
         inp_var = tk.StringVar()
         inp_entry = tk.Entry(
             inp_frame, textvariable=inp_var,
@@ -636,10 +642,6 @@ class App(tk.Tk):
         ).pack(side=tk.RIGHT, fill=tk.Y, pady=2, padx=2)
 
         # ── control bar ───────────────────────────────────────────────────────
-        ctrl = tk.Frame(outer, bg=PANEL, height=36)
-        ctrl.pack(fill=tk.X)
-        ctrl.pack_propagate(False)
-
         status_lbl = tk.Label(ctrl, text="● RUNNING", font=F(8, bold=True),
                               bg=PANEL, fg=GREEN)
         status_lbl.pack(side=tk.RIGHT, padx=10)
