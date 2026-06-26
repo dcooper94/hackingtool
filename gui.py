@@ -80,6 +80,7 @@ def _find_term() -> str | None:
     return None
 
 TERM_BIN = _find_term()
+UV_BIN   = shutil.which("uv")
 
 
 # ── Category registry (pre-instantiated at load time) ──────────────────────────
@@ -232,6 +233,28 @@ def _strip_ansi(s: str) -> str:
     return _ANSI_RE.sub("", s)
 
 
+# ── pip → uv command rewriter ──────────────────────────────────────────────────
+# Matches:  pip install / pip3 install / python -m pip install / python3 -m pip install
+_PIP_RE = re.compile(r"\b(?:python3?\s+-m\s+)?pip3?\s+install\b")
+
+def _preprocess_cmd(cmd: str) -> str:
+    """
+    Rewrite pip install commands to avoid PEP 668 externally-managed-environment
+    errors on modern Kali / Debian.
+
+    - If uv is available:  pip install X  →  uv pip install --system X
+    - Otherwise:           pip install X  →  pip install --break-system-packages X
+    """
+    if not _PIP_RE.search(cmd):
+        return cmd
+    # Don't double-add flags if someone already handled it
+    if "--system" in cmd or "--break-system-packages" in cmd:
+        return cmd
+    if UV_BIN:
+        return _PIP_RE.sub("uv pip install --system", cmd)
+    return _PIP_RE.sub(lambda m: m.group(0) + " --break-system-packages", cmd)
+
+
 # ── Update-command builder ─────────────────────────────────────────────────────
 def _build_update_cmds(tool) -> list[str]:
     cmds: list[str] = []
@@ -246,7 +269,8 @@ def _build_update_cmds(tool) -> list[str]:
                     dn = parts[idx + 1]
                 cmds.append(f"git -C {dn} pull")
         elif "pip install" in ic:
-            cmds.append(ic.replace("pip install", "pip install --upgrade"))
+            upgrade = ic.replace("pip install", "pip install --upgrade")
+            cmds.append(_preprocess_cmd(upgrade))
         elif "go install" in ic:
             cmds.append(ic)
         elif "gem install" in ic:
@@ -648,11 +672,17 @@ class App(tk.Tk):
             self.after(10, _write, "No commands to run.\n", "err")
             return
 
+        # Show which pip backend will be used
+        if UV_BIN:
+            self.after(10, _write, f"[uv {UV_BIN}  —  pip installs → uv pip install --system]\n", "info")
+        else:
+            self.after(10, _write, "[uv not found  —  pip installs → pip --break-system-packages]\n", "info")
+
         def _runner():
             for cmd in commands:
                 if self._term_gen != my_gen:
                     break
-                cmd = cmd.strip()
+                cmd = _preprocess_cmd(cmd.strip())
                 if not cmd:
                     continue
                 self.after(0, _write, f"$ {cmd}\n", "cmd")
