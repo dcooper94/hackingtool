@@ -8,7 +8,9 @@ Requirements: python3-tk (apt install python3-tk)
 """
 
 import os
+import re
 import sys
+import time
 import shutil
 import threading
 import subprocess
@@ -61,8 +63,9 @@ BG_R    = "#2b0f0d"   # Red-tinted surface
 BG_M    = "#1f0d33"   # Magenta-tinted surface
 TERM_FG = "#00ff41"   # Matrix-green terminal text
 
-# Drag threshold in pixels: movements below this count as taps
-TAP_THRESHOLD = 12
+# A gesture is a TAP only if finger moves less than this AND lifts within TAP_MAX_MS
+TAP_THRESHOLD = 30    # pixels
+TAP_MAX_MS    = 500   # milliseconds
 
 
 def F(size: int, bold: bool = False) -> tuple:
@@ -181,32 +184,33 @@ def _bind_tap(widgets: list[tk.Widget], on_tap, sc: TouchScroll | None = None,
     list keeps scrolling even when a finger starts on a row / card.
     *hl_target* is highlighted on press and restored on release.
     """
-    state: dict = {"y": 0, "dragging": False}
+    state: dict = {"y": 0, "t": 0.0, "dragging": False}
+
+    def _hl(bg: str):
+        if hl_target is None:
+            return
+        try:
+            hl_target.config(bg=bg)
+            for k in hl_target.winfo_children():
+                k.config(bg=bg)
+        except tk.TclError:
+            pass
 
     def _press(e):
         state["y"] = e.y_root
+        state["t"] = time.monotonic()
         state["dragging"] = False
-        if hl_target is not None:
-            try:
-                hl_target.config(bg=hl_color)
-                for k in hl_target.winfo_children():
-                    k.config(bg=hl_color)
-            except tk.TclError:
-                pass
+        _hl(hl_color)
 
     def _motion(e):
         if abs(e.y_root - state["y"]) > TAP_THRESHOLD:
             state["dragging"] = True
+            _hl(CARD)   # remove highlight the moment scrolling is detected
 
     def _release(e):
-        if hl_target is not None:
-            try:
-                hl_target.config(bg=CARD)
-                for k in hl_target.winfo_children():
-                    k.config(bg=CARD)
-            except tk.TclError:
-                pass
-        if not state["dragging"]:
+        _hl(CARD)
+        elapsed_ms = (time.monotonic() - state["t"]) * 1000
+        if not state["dragging"] and elapsed_ms < TAP_MAX_MS:
             on_tap()
 
     for w in widgets:
@@ -219,6 +223,13 @@ def _bind_tap(widgets: list[tk.Widget], on_tap, sc: TouchScroll | None = None,
 
     if sc is not None:
         sc.register(widgets)
+
+
+# ── ANSI escape-code stripper ──────────────────────────────────────────────────
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mABCDEFGHJKSTfnsu]|\x1b\][^\x07]*\x07|\r")
+
+def _strip_ansi(s: str) -> str:
+    return _ANSI_RE.sub("", s)
 
 
 # ── Update-command builder ─────────────────────────────────────────────────────
@@ -250,9 +261,17 @@ class App(tk.Tk):
         super().__init__()
         self.title("HackingTool")
         self.configure(bg=BG)
-        self.attributes("-fullscreen", True)
-        # Escape drops out of fullscreen (handy during development)
-        self.bind("<Escape>", lambda e: self.attributes("-fullscreen", False))
+
+        # Measure the physical display before anything else is drawn
+        self.update_idletasks()
+        self._SW = self.winfo_screenwidth()
+        self._SH = self.winfo_screenheight()
+
+        # Cover the whole display without a title bar (kiosk mode)
+        self.geometry(f"{self._SW}x{self._SH}+0+0")
+        self.overrideredirect(True)          # removes OS window decoration
+        # Escape restores the title bar (dev escape hatch)
+        self.bind("<Escape>", lambda e: self.overrideredirect(False))
 
         self._stack: list[tuple] = []
         self._proc: subprocess.Popen | None = None
@@ -337,7 +356,7 @@ class App(tk.Tk):
         sc.pack(fill=tk.BOTH, expand=True)
         grid = sc.inner
 
-        COLS = 3
+        COLS = 2
         for i, (icon, label, coll) in enumerate(CATEGORIES):
             r, c = divmod(i, COLS)
 
@@ -345,12 +364,13 @@ class App(tk.Tk):
                 grid, bg=CARD,
                 highlightbackground=BORDER, highlightthickness=1,
             )
-            card.grid(row=r, column=c, padx=2, pady=2, sticky="nsew")
+            card.grid(row=r, column=c, padx=3, pady=3, sticky="nsew")
+            grid.rowconfigure(r, minsize=80)   # guaranteed tap-target height
 
-            icon_lbl = tk.Label(card, text=icon, font=("", 22),
-                                bg=CARD, fg=FG, pady=4)
+            icon_lbl = tk.Label(card, text=icon, font=("", 24),
+                                bg=CARD, fg=FG, pady=6)
             icon_lbl.pack()
-            text_lbl = tk.Label(card, text=label, font=F(8, bold=True),
+            text_lbl = tk.Label(card, text=label, font=F(9, bold=True),
                                 bg=CARD, fg=CYAN, justify=tk.CENTER, pady=2)
             text_lbl.pack()
 
@@ -361,7 +381,7 @@ class App(tk.Tk):
                       sc=sc, hl_target=card, hl_color=HOVER)
 
         for c in range(COLS):
-            grid.columnconfigure(c, weight=1, minsize=100)
+            grid.columnconfigure(c, weight=1, minsize=130)
 
     # ── Page: tool list ───────────────────────────────────────────────────────
 
@@ -408,28 +428,28 @@ class App(tk.Tk):
             else:
                 s_txt, s_fg = "•", DIM
 
-            stat = tk.Label(row, text=s_txt, font=F(11),
-                            bg=CARD, fg=s_fg, width=3, pady=10)
+            stat = tk.Label(row, text=s_txt, font=F(12),
+                            bg=CARD, fg=s_fg, width=3, pady=14)
             stat.pack(side=tk.LEFT)
 
             mid = tk.Frame(row, bg=CARD)
-            mid.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=4)
+            mid.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=6)
 
-            name = tk.Label(mid, text=tool.TITLE, font=F(9, bold=True),
+            name = tk.Label(mid, text=tool.TITLE, font=F(10, bold=True),
                             bg=CARD, fg=FG, anchor="w")
             name.pack(fill=tk.X)
 
             desc_str = (getattr(tool, "DESCRIPTION", "") or "").strip()
             sub_widgets: list[tk.Widget] = [stat, mid, name]
             if desc_str:
-                short = desc_str[:65] + ("…" if len(desc_str) > 65 else "")
+                short = desc_str[:60] + ("…" if len(desc_str) > 60 else "")
                 desc = tk.Label(mid, text=short, font=F(8),
                                 bg=CARD, fg=DIM, anchor="w")
                 desc.pack(fill=tk.X)
                 sub_widgets.append(desc)
 
-            arrow = tk.Label(row, text="›", font=F(14, bold=True),
-                             bg=CARD, fg=CYAN, padx=8)
+            arrow = tk.Label(row, text="›", font=F(15, bold=True),
+                             bg=CARD, fg=CYAN, padx=10)
             arrow.pack(side=tk.RIGHT)
             sub_widgets.append(arrow)
 
@@ -563,10 +583,11 @@ class App(tk.Tk):
         txt = tk.Text(
             txt_wrap,
             bg="#000000", fg=TERM_FG,
-            font=("Courier", 8),
+            font=("Courier", 10),
             selectbackground="#003300",
             insertbackground=TERM_FG,
-            relief=tk.FLAT, bd=0, wrap=tk.WORD,
+            relief=tk.FLAT, bd=4, wrap=tk.WORD,
+            spacing1=2,    # pixels above each line
             state=tk.DISABLED,
         )
         vsb = tk.Scrollbar(
@@ -653,7 +674,7 @@ class App(tk.Tk):
                         if self._term_gen != my_gen:
                             self._proc.terminate()
                             break
-                        self.after(0, _write, line)
+                        self.after(0, _write, _strip_ansi(line))
                     self._proc.wait()
                     if self._term_gen == my_gen:
                         rc  = self._proc.returncode
