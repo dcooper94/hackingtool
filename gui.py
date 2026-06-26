@@ -9,7 +9,10 @@ Requirements: python3-tk (apt install python3-tk)
 
 import math
 import os
+import pty
 import re
+import select
+import signal
 import sys
 import time
 import shutil
@@ -64,24 +67,12 @@ BG_R    = "#2b0f0d"
 BG_M    = "#1f0d33"
 TERM_FG = "#00ff41"
 
-# Tap detection: finger must stay within TAP_THRESHOLD px and lift within TAP_MAX_MS
 TAP_THRESHOLD = 50   # pixels
 TAP_MAX_MS    = 280  # milliseconds
 
 
 def F(size: int, bold: bool = False) -> tuple:
     return ("Courier", size, "bold" if bold else "normal")
-
-
-# ── Terminal emulator detection ────────────────────────────────────────────────
-def _find_term() -> str | None:
-    for t in ("xfce4-terminal", "lxterminal", "xterm", "konsole", "gnome-terminal"):
-        if shutil.which(t):
-            return t
-    return None
-
-TERM_BIN = _find_term()
-UV_BIN   = shutil.which("uv")
 
 
 # ── Category registry ──────────────────────────────────────────────────────────
@@ -114,14 +105,10 @@ CATEGORIES: list[tuple[str, str, object]] = [
 def _bind_tap(widgets: list[tk.Widget], on_tap,
               hl_target: tk.Widget | None = None, hl_color: str = HOVER):
     """
-    Bind a tap gesture to *widgets* — fires on_tap only when the finger lifts
-    within TAP_THRESHOLD px of where it pressed, within TAP_MAX_MS.
-
-    Displacement is measured both during motion events AND at release, because
-    some RPi touchscreen drivers skip B1-Motion entirely and go straight from
-    ButtonPress to ButtonRelease even during a scroll gesture.
-
-    Highlight appears after 80 ms so fast scroll-flicks don't flash every item.
+    Tap = press + release within TAP_THRESHOLD px and TAP_MAX_MS.
+    Displacement checked in both B1-Motion and ButtonRelease so drivers that
+    skip motion events (common on RPi resistive screens) are handled correctly.
+    Highlight is delayed 80 ms so scroll-flicks don't flash every item.
     """
     state: dict = {"x": 0, "y": 0, "t": 0.0, "dragging": False, "hl_id": None}
 
@@ -182,14 +169,15 @@ def _bind_tap(widgets: list[tk.Widget], on_tap,
             pass
 
 
-# ── ANSI escape-code stripper ──────────────────────────────────────────────────
+# ── ANSI stripper ──────────────────────────────────────────────────────────────
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mABCDEFGHJKSTfnsu]|\x1b\][^\x07]*\x07|\r")
 
 def _strip_ansi(s: str) -> str:
     return _ANSI_RE.sub("", s)
 
 
-# ── pip → uv command rewriter ──────────────────────────────────────────────────
+# ── pip → uv rewriter ──────────────────────────────────────────────────────────
+UV_BIN  = shutil.which("uv")
 _PIP_RE = re.compile(r"\b(?:python3?\s+-m\s+)?pip3?\s+install\b")
 
 def _preprocess_cmd(cmd: str) -> str:
@@ -237,13 +225,14 @@ class App(tk.Tk):
         self.bind("<Escape>", lambda e: self.attributes("-fullscreen", False))
 
         self._stack: list[tuple] = []
-        self._proc: subprocess.Popen | None = None
-        self._term_gen: int = 0
+        self._proc:      subprocess.Popen | None = None
+        self._master_fd: int | None = None   # PTY master fd for stdin forwarding
+        self._term_gen:  int = 0
 
         self._build_chrome()
         self._push(self._page_main)
 
-    # ── Chrome (persistent header) ────────────────────────────────────────────
+    # ── Chrome ────────────────────────────────────────────────────────────────
 
     def _build_chrome(self):
         hdr = tk.Frame(self, bg=PANEL, height=40)
@@ -297,27 +286,38 @@ class App(tk.Tk):
 
     def _go_back(self):
         self._term_gen += 1
-        if self._proc and self._proc.poll() is None:
-            try:
-                self._proc.terminate()
-            except Exception:
-                pass
+        self._kill_proc()
         if len(self._stack) > 1:
             self._stack.pop()
             fn, args = self._stack[-1]
             self._clear()
             fn(*args)
 
+    def _kill_proc(self):
+        """Kill the running subprocess and close the PTY master fd."""
+        if self._proc and self._proc.poll() is None:
+            try:
+                os.killpg(os.getpgid(self._proc.pid), signal.SIGTERM)
+            except Exception:
+                try:
+                    self._proc.terminate()
+                except Exception:
+                    pass
+        if self._master_fd is not None:
+            try:
+                os.close(self._master_fd)
+            except OSError:
+                pass
+            self._master_fd = None
+
     # ── Paged view ────────────────────────────────────────────────────────────
 
     def _show_paged(self, container: tk.Frame, items: list,
                     build_fn, per_page: int):
         """
-        Fill *container* with a paginated view of *items*.
-
-        build_fn(page_frame, page_items) is called to populate each page.
-        A fixed bottom bar shows  ◄  page X of Y  ►  navigation buttons.
-        No scrolling; no drag-vs-tap ambiguity.
+        Paginate *items* inside *container* with ◄ / ► arrow buttons.
+        build_fn(page_frame, page_items) populates each page.
+        No scrolling — eliminates drag-vs-tap ambiguity completely.
         """
         n_pages = max(1, math.ceil(len(items) / per_page))
         state = {"p": 0}
@@ -325,7 +325,6 @@ class App(tk.Tk):
         content = tk.Frame(container, bg=BG)
         content.pack(fill=tk.BOTH, expand=True)
 
-        # ── bottom nav bar ──────────────────────────────────────────────────
         nav = tk.Frame(container, bg=PANEL, height=46)
         nav.pack(fill=tk.X)
         nav.pack_propagate(False)
@@ -384,12 +383,11 @@ class App(tk.Tk):
         self._stack = [(self._page_main, ())]
         self._set_header("[ HACKINGTOOL ]", back=False)
 
-        COLS = 2  # 2 columns × 3 rows = 6 categories per page
+        COLS = 2  # 2 cols × 3 rows = 6 per page → 4 pages for 21 categories
 
         def _build(frame, page_items):
             for i, (icon, label, coll) in enumerate(page_items):
                 r, c = divmod(i, COLS)
-
                 card = tk.Frame(
                     frame, bg=CARD,
                     highlightbackground=BORDER, highlightthickness=1,
@@ -501,97 +499,76 @@ class App(tk.Tk):
         p.pack(fill=tk.BOTH, expand=True)
 
         installed = hasattr(tool, "is_installed") and tool.is_installed
-        sb_bg  = BG_G if installed else CARD
+
+        # Status + description row
+        top = tk.Frame(p, bg=PANEL, padx=10, pady=6)
+        top.pack(fill=tk.X, padx=4, pady=(4, 2))
+
         sb_fg  = GREEN if installed else DIM
         sb_txt = "✔  INSTALLED" if installed else "✘  NOT INSTALLED"
-
-        sf = tk.Frame(p, bg=sb_bg, padx=10, pady=8)
-        sf.pack(fill=tk.X, padx=4, pady=(4, 2))
-        tk.Label(sf, text=sb_txt, font=F(10, bold=True),
-                 bg=sb_bg, fg=sb_fg).pack(side=tk.LEFT)
+        tk.Label(top, text=sb_txt, font=F(10, bold=True),
+                 bg=PANEL, fg=sb_fg).pack(anchor="w")
 
         raw = (getattr(tool, "DESCRIPTION", "") or "No description.").strip()
-        df = tk.Frame(p, bg=PANEL, padx=10, pady=5)
-        df.pack(fill=tk.X, padx=4, pady=1)
-        tk.Label(df, text=raw[:180], font=F(9), bg=PANEL, fg=DIM,
-                 wraplength=446, justify=tk.LEFT, anchor="nw").pack(fill=tk.X)
+        tk.Label(top, text=raw[:160], font=F(8), bg=PANEL, fg=DIM,
+                 wraplength=450, justify=tk.LEFT, anchor="nw").pack(fill=tk.X, pady=(4, 0))
 
         url = getattr(tool, "PROJECT_URL", "")
         if url:
             import webbrowser
-            uf = tk.Frame(p, bg=PANEL, padx=10, pady=3)
-            uf.pack(fill=tk.X, padx=4)
-            lnk = tk.Label(uf, text=f"🔗 {url[:54]}", font=F(8),
+            lnk = tk.Label(top, text=f"🔗 {url[:52]}", font=F(8),
                            bg=PANEL, fg=CYAN, cursor="hand2", anchor="w")
             lnk.pack(fill=tk.X)
             lnk.bind("<Button-1>", lambda e: webbrowser.open_new_tab(url))
 
-        tags = getattr(tool, "TAGS", [])
-        if tags:
-            tf = tk.Frame(p, bg=BG, padx=6, pady=3)
-            tf.pack(fill=tk.X, padx=4)
-            for tag in tags[:8]:
-                tk.Label(tf, text=f" {tag} ", font=F(7, bold=True),
-                         bg=BG_C, fg=CYAN, padx=2, pady=1).pack(side=tk.LEFT, padx=1)
-
         tk.Frame(p, bg=BORDER, height=1).pack(fill=tk.X, padx=4, pady=4)
 
+        # ── Action buttons — stacked vertically for large touch targets ───────
         install_cmds = list(getattr(tool, "INSTALL_COMMANDS", []) or [])
         run_cmds     = list(getattr(tool, "RUN_COMMANDS",     []) or [])
         update_cmds  = _build_update_cmds(tool)
 
-        def _do_install():
-            self._push(self._page_terminal, install_cmds,
-                       f"Installing: {tool.TITLE}")
-
-        def _do_run():
-            if TERM_BIN and run_cmds:
-                self._open_term(run_cmds)
-            elif run_cmds:
-                self._push(self._page_terminal, run_cmds,
-                           f"Running: {tool.TITLE}")
-
-        def _do_update():
-            self._push(self._page_terminal, update_cmds,
-                       f"Updating: {tool.TITLE}")
-
-        btn_row = tk.Frame(p, bg=BG)
-        btn_row.pack(fill=tk.X, padx=4)
-
-        for lbl, fn, cmds, bg_col, fg_col in [
-            ("INSTALL", _do_install, install_cmds, BG_G,  GREEN),
-            ("RUN",     _do_run,     run_cmds,     BG_C,  CYAN),
-            ("UPDATE",  _do_update,  install_cmds, BG_M,  MAGENTA),
+        for label, cmds, bg_col, fg_col, title_prefix in [
+            ("⬇  INSTALL",  install_cmds, BG_G, GREEN,   "Installing"),
+            ("▶  RUN",       run_cmds,     BG_C, CYAN,    "Running"),
+            ("↑  UPDATE",    update_cmds,  BG_M, MAGENTA, "Updating"),
         ]:
-            has_cmd = bool(cmds)
+            has = bool(cmds)
             tk.Button(
-                btn_row, text=lbl, font=F(9, bold=True),
-                bg=bg_col if has_cmd else CARD,
-                fg=fg_col if has_cmd else DIM,
-                activebackground=CARD, activeforeground=fg_col,
-                relief=tk.FLAT, bd=0, pady=14,
-                state=tk.NORMAL if has_cmd else tk.DISABLED,
-                command=fn,
-            ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=2, pady=2)
+                p, text=label, font=F(10, bold=True),
+                bg=bg_col if has else CARD,
+                fg=fg_col if has else DIM,
+                activebackground=HOVER, activeforeground=fg_col,
+                relief=tk.FLAT, bd=0, pady=15,
+                disabledforeground=DIM,
+                state=tk.NORMAL if has else tk.DISABLED,
+                command=lambda c=cmds, t=title_prefix: self._push(
+                    self._page_terminal, c, f"{t}: {tool.TITLE}"
+                ),
+            ).pack(fill=tk.X, padx=4, pady=2)
 
+        # Extra OPTIONS defined by the tool
         std = {"Install", "Run", "Update", "Open Folder"}
         extra = [o for o in getattr(tool, "OPTIONS", []) if o[0] not in std]
         if extra:
             tk.Frame(p, bg=BORDER, height=1).pack(fill=tk.X, padx=4, pady=4)
-            er = tk.Frame(p, bg=BG)
-            er.pack(fill=tk.X, padx=4)
             for opt_name, opt_fn in extra:
                 tk.Button(
-                    er, text=opt_name, font=F(9, bold=True),
+                    p, text=opt_name, font=F(9, bold=True),
                     bg=PANEL, fg=YELLOW,
-                    activebackground=CARD, activeforeground=YELLOW,
-                    relief=tk.FLAT, bd=0, pady=10,
+                    activebackground=HOVER, activeforeground=YELLOW,
+                    relief=tk.FLAT, bd=0, pady=12,
                     command=opt_fn,
-                ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=2, pady=2)
+                ).pack(fill=tk.X, padx=4, pady=2)
 
-    # ── Page: in-app terminal output ──────────────────────────────────────────
+    # ── Page: in-app terminal (PTY-backed, with stdin input bar) ─────────────
 
     def _page_terminal(self, commands: list[str], title: str = "Terminal"):
+        """
+        Runs *commands* inside a PTY so interactive programs (prompts, curses,
+        colour output) work correctly.  A text entry + SEND button at the
+        bottom lets the user type answers / commands into the running process.
+        """
         self._term_gen += 1
         my_gen = self._term_gen
         self._set_header(title[:28], back=True)
@@ -599,6 +576,7 @@ class App(tk.Tk):
         outer = tk.Frame(self._area, bg=BG)
         outer.pack(fill=tk.BOTH, expand=True)
 
+        # ── output area ──────────────────────────────────────────────────────
         txt_wrap = tk.Frame(outer, bg="#000000")
         txt_wrap.pack(fill=tk.BOTH, expand=True)
 
@@ -625,6 +603,39 @@ class App(tk.Tk):
         txt.tag_configure("err",  foreground=RED)
         txt.tag_configure("info", foreground=YELLOW)
 
+        # ── stdin input bar ───────────────────────────────────────────────────
+        inp_frame = tk.Frame(outer, bg="#000000", height=40)
+        inp_frame.pack(fill=tk.X)
+        inp_frame.pack_propagate(False)
+
+        inp_var = tk.StringVar()
+        inp_entry = tk.Entry(
+            inp_frame, textvariable=inp_var,
+            font=("Courier", 10), bg="#0a0a0a", fg=TERM_FG,
+            insertbackground=TERM_FG, relief=tk.FLAT, bd=4,
+            selectbackground="#003300",
+        )
+        inp_entry.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        def _send_input(*_):
+            text = inp_var.get()
+            inp_var.set("")
+            if self._master_fd is not None:
+                try:
+                    os.write(self._master_fd, (text + "\n").encode())
+                except OSError:
+                    pass
+
+        inp_entry.bind("<Return>", _send_input)
+
+        tk.Button(
+            inp_frame, text=" ↵ SEND ", font=F(9, bold=True),
+            bg=BG_C, fg=CYAN, relief=tk.FLAT, bd=0,
+            activebackground=HOVER, activeforeground=CYAN,
+            command=_send_input,
+        ).pack(side=tk.RIGHT, fill=tk.Y, pady=2, padx=2)
+
+        # ── control bar ───────────────────────────────────────────────────────
         ctrl = tk.Frame(outer, bg=PANEL, height=36)
         ctrl.pack(fill=tk.X)
         ctrl.pack_propagate(False)
@@ -645,11 +656,12 @@ class App(tk.Tk):
                 pass
 
         def _kill():
-            if self._proc and self._proc.poll() is None:
-                try:
-                    self._proc.terminate()
-                except Exception:
-                    pass
+            self._term_gen += 1   # stop the runner thread
+            self._kill_proc()
+            try:
+                status_lbl.config(text="● STOPPED", fg=RED)
+            except tk.TclError:
+                pass
 
         def _clear_txt():
             try:
@@ -679,38 +691,90 @@ class App(tk.Tk):
 
         if UV_BIN:
             self.after(10, _write,
-                       f"[uv {UV_BIN}  —  pip installs → uv pip install --system]\n",
+                       f"[uv detected — pip installs rewritten to: uv pip install --system]\n",
                        "info")
         else:
             self.after(10, _write,
-                       "[uv not found  —  pip installs → pip --break-system-packages]\n",
+                       "[uv not found — pip installs will use --break-system-packages]\n",
                        "info")
 
+        # ── PTY runner thread ─────────────────────────────────────────────────
         def _runner():
-            for cmd in commands:
+            for raw_cmd in commands:
                 if self._term_gen != my_gen:
                     break
-                cmd = _preprocess_cmd(cmd.strip())
+
+                cmd = _preprocess_cmd(raw_cmd.strip())
                 if not cmd:
                     continue
+
                 self.after(0, _write, f"$ {cmd}\n", "cmd")
+
                 try:
+                    master_fd, slave_fd = pty.openpty()
+                    self._master_fd = master_fd
+
                     self._proc = subprocess.Popen(
                         cmd, shell=True,
-                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                        text=True, bufsize=1,
+                        stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
+                        close_fds=True,
+                        preexec_fn=os.setsid,
                     )
-                    for line in iter(self._proc.stdout.readline, ""):
+                    os.close(slave_fd)
+
+                    # Read PTY output until process exits
+                    while True:
                         if self._term_gen != my_gen:
-                            self._proc.terminate()
+                            self._kill_proc()
                             break
-                        self.after(0, _write, _strip_ansi(line))
+                        try:
+                            r, _, _ = select.select([master_fd], [], [], 0.05)
+                            if r:
+                                try:
+                                    data = os.read(master_fd, 1024)
+                                    if data:
+                                        text = _strip_ansi(
+                                            data.decode("utf-8", errors="replace")
+                                        )
+                                        self.after(0, _write, text)
+                                except OSError:
+                                    break
+                            elif self._proc.poll() is not None:
+                                # Drain any remaining buffered output
+                                try:
+                                    while True:
+                                        r2, _, _ = select.select(
+                                            [master_fd], [], [], 0.02
+                                        )
+                                        if not r2:
+                                            break
+                                        data = os.read(master_fd, 1024)
+                                        if not data:
+                                            break
+                                        text = _strip_ansi(
+                                            data.decode("utf-8", errors="replace")
+                                        )
+                                        self.after(0, _write, text)
+                                except OSError:
+                                    pass
+                                break
+                        except (OSError, ValueError):
+                            break
+
+                    try:
+                        os.close(master_fd)
+                    except OSError:
+                        pass
+                    self._master_fd = None
+
                     self._proc.wait()
                     if self._term_gen == my_gen:
                         rc  = self._proc.returncode
                         tag = "ok" if rc == 0 else "err"
-                        msg = "\n✔  Exit 0\n\n" if rc == 0 else f"\n✘  Exit {rc}\n\n"
+                        msg = "\n✔  Done (exit 0)\n\n" if rc == 0 \
+                            else f"\n✘  Exit {rc}\n\n"
                         self.after(0, _write, msg, tag)
+
                 except Exception as ex:
                     if self._term_gen == my_gen:
                         self.after(0, _write, f"Error: {ex}\n", "err")
@@ -719,35 +783,6 @@ class App(tk.Tk):
                 self.after(0, status_lbl.config, {"text": "● DONE", "fg": CYAN})
 
         threading.Thread(target=_runner, daemon=True).start()
-
-    # ── Helper: launch commands in a system terminal window ───────────────────
-
-    def _open_term(self, commands: list[str]):
-        bash = "; ".join(commands)
-        hold = (
-            f"bash -c {bash!r}; "
-            "echo; read -n1 -p 'Press any key to close...' k; exit"
-        )
-        t = TERM_BIN
-        try:
-            if "xterm" in t:
-                subprocess.Popen([
-                    "xterm",
-                    "-bg", "#000000", "-fg", TERM_FG,
-                    "-fa", "Courier", "-fs", "10",
-                    "-title", "HackingTool", "-e", hold,
-                ])
-            elif "xfce4" in t:
-                subprocess.Popen([t, "--title=HackingTool", "-x",
-                                   "bash", "-c", hold])
-            elif "lxterminal" in t:
-                subprocess.Popen([t, "--title=HackingTool", "-e", hold])
-            elif "gnome" in t:
-                subprocess.Popen([t, "--", "bash", "-c", hold])
-            else:
-                subprocess.Popen([t, "-e", hold])
-        except Exception:
-            self._push(self._page_terminal, commands, "Terminal")
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
