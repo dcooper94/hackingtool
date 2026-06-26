@@ -95,13 +95,15 @@ PACKAGE_UPDATE_CMDS: dict[str, str] = {
 
 # Core system packages needed per package manager
 REQUIRED_PACKAGES: dict[str, list[str]] = {
-    "apt-get": ["git", "python3-pip", "python3-venv", "curl", "wget",
+    "apt-get": ["git", "python3", "python3-pip", "python3-venv", "python3-tk",
+                "curl", "wget", "uv",
                 "ruby", "ruby-dev", "golang-go", "php", "default-jre-headless"],
-    "pacman":  ["git", "python-pip", "curl", "wget",
+    "pacman":  ["git", "python", "python-pip", "tk", "curl", "wget",
                 "ruby", "go", "php", "jre-openjdk-headless"],
-    "dnf":     ["git", "python3-pip", "curl", "wget",
+    "dnf":     ["git", "python3", "python3-pip", "python3-tkinter", "curl", "wget",
                 "ruby", "golang", "php", "java-17-openjdk-headless"],
-    "zypper":  ["git", "python3-pip", "curl", "wget", "ruby", "go", "php"],
+    "zypper":  ["git", "python3", "python3-pip", "python3-tk", "curl", "wget",
+                "ruby", "go", "php"],
     "brew":    ["git", "python3", "curl", "wget", "ruby", "go", "php"],
     "pkg":     ["git", "python3", "py39-pip", "curl", "wget", "ruby", "go", "php83"],
 }

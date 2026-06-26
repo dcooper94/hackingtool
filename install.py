@@ -189,7 +189,29 @@ def create_venv_and_install():
         console.print("[warning]requirements.txt not found — skipping pip install.[/warning]")
 
 
-# ── Launcher script ────────────────────────────────────────────────────────────
+# ── uv installation ────────────────────────────────────────────────────────────
+
+def install_uv():
+    if shutil.which("uv"):
+        console.print("[success]✔ uv already installed[/success]")
+        return
+    console.print("[dim]Installing uv...[/dim]")
+    r = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "uv", "--break-system-packages"],
+        capture_output=True,
+    )
+    if r.returncode == 0:
+        console.print("[success]✔ uv installed via pip[/success]")
+        return
+    # Fallback to the official curl installer
+    r2 = subprocess.run("curl -LsSf https://astral.sh/uv/install.sh | sh", shell=True, check=False)
+    if r2.returncode == 0:
+        console.print("[success]✔ uv installed via curl installer[/success]")
+    else:
+        console.print("[warning]Could not install uv — pip commands will use --break-system-packages instead[/warning]")
+
+
+# ── Launcher scripts ───────────────────────────────────────────────────────────
 
 def create_launcher():
     launcher = APP_INSTALL_DIR / "hackingtool.sh"
@@ -203,6 +225,21 @@ def create_launcher():
         APP_BIN_PATH.unlink()
     shutil.move(str(launcher), str(APP_BIN_PATH))
     console.print(f"[success]✔ Launcher installed at {APP_BIN_PATH}[/success]")
+
+
+def create_gui_launcher():
+    gui_bin = APP_BIN_PATH.parent / "hackingtool-gui"
+    tmp = APP_INSTALL_DIR / "hackingtool-gui.sh"
+    tmp.write_text(
+        "#!/bin/bash\n"
+        f'source "{APP_INSTALL_DIR / VENV_DIR_NAME}/bin/activate"\n'
+        f'python3 "{APP_INSTALL_DIR / "gui.py"}" "$@"\n'
+    )
+    tmp.chmod(0o755)
+    if gui_bin.exists():
+        gui_bin.unlink()
+    shutil.move(str(tmp), str(gui_bin))
+    console.print(f"[success]✔ GUI launcher installed at {gui_bin}[/success]")
 
 
 # ── User directories ───────────────────────────────────────────────────────────
@@ -251,7 +288,9 @@ def main():
         p.add_task("Setting up virtualenv & requirements...", total=None)
         create_venv_and_install()
 
+    install_uv()
     create_launcher()
+    create_gui_launcher()
     create_user_directories()
 
     console.print(Panel(

@@ -69,20 +69,22 @@ info "Package manager: ${BOLD}$PKG_MGR${RESET}"
 info "Installing prerequisites..."
 $PKG_UPDATE 2>/dev/null || true
 
-for pkg in git curl python3 python3-pip python3-venv; do
+for pkg in git curl python3 python3-pip python3-venv python3-tk; do
     if [ "$PKG_MGR" = "pacman" ]; then
         case "$pkg" in
             python3)     pkg="python" ;;
             python3-pip) pkg="python-pip" ;;
             python3-venv) continue ;;  # included in python on Arch
+            python3-tk)  pkg="tk" ;;
         esac
     elif [ "$PKG_MGR" = "brew" ]; then
         case "$pkg" in
-            python3-pip|python3-venv) continue ;;  # included in python3 on macOS
+            python3-pip|python3-venv|python3-tk) continue ;;  # included in python3 on macOS
         esac
     elif [ "$PKG_MGR" = "dnf" ]; then
         case "$pkg" in
             python3-venv) continue ;;  # included in python3 on Fedora
+            python3-tk)   pkg="python3-tkinter" ;;
         esac
     fi
     $PKG_INSTALL "$pkg" 2>/dev/null || warn "Could not install $pkg — may already be present"
@@ -121,7 +123,18 @@ info "Installing Python dependencies..."
 "$INSTALL_DIR/venv/bin/pip" install --quiet -r "$INSTALL_DIR/requirements.txt" 2>/dev/null
 ok "Dependencies installed"
 
-# ── Create launcher ──────────────────────────────────────────────────────────
+# ── Install uv ───────────────────────────────────────────────────────────────
+info "Installing uv..."
+if command -v uv &>/dev/null; then
+    ok "uv already installed"
+elif "$INSTALL_DIR/venv/bin/pip" install --quiet uv 2>/dev/null; then
+    ok "uv installed via pip"
+else
+    curl -LsSf https://astral.sh/uv/install.sh | sh 2>/dev/null && ok "uv installed via curl" \
+        || warn "Could not install uv — pip will use --break-system-packages as fallback"
+fi
+
+# ── Create launchers ─────────────────────────────────────────────────────────
 cat > "$BIN_PATH" << 'LAUNCHER'
 #!/bin/bash
 source "/usr/share/hackingtool/venv/bin/activate"
@@ -129,6 +142,14 @@ python3 "/usr/share/hackingtool/hackingtool.py" "$@"
 LAUNCHER
 chmod 755 "$BIN_PATH"
 ok "Launcher installed at $BIN_PATH"
+
+cat > "/usr/bin/hackingtool-gui" << 'GUILAUNCHER'
+#!/bin/bash
+source "/usr/share/hackingtool/venv/bin/activate"
+python3 "/usr/share/hackingtool/gui.py" "$@"
+GUILAUNCHER
+chmod 755 "/usr/bin/hackingtool-gui"
+ok "GUI launcher installed at /usr/bin/hackingtool-gui"
 
 # ── User directories ─────────────────────────────────────────────────────────
 mkdir -p "$CONFIG_DIR/tools"
@@ -149,5 +170,6 @@ ok "User config: $CONFIG_DIR"
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}${BOLD}  ✔  Installation complete!${RESET}"
-echo -e "  Type ${BOLD}${CYAN}hackingtool${RESET} to start."
+echo -e "  Type ${BOLD}${CYAN}hackingtool${RESET} to start (CLI)."
+echo -e "  Type ${BOLD}${CYAN}hackingtool-gui${RESET} to start (touchscreen GUI)."
 echo ""
