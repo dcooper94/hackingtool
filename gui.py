@@ -77,27 +77,27 @@ def F(size: int, bold: bool = False) -> tuple:
 
 # ── Category registry ──────────────────────────────────────────────────────────
 CATEGORIES: list[tuple[str, str, object]] = [
-    ("🛡",  "Anon\nHiding",        AnonSurfTools()),
-    ("🔍",  "Info\nGather",        InformationGatheringTools()),
-    ("📚",  "Wordlist\nGen",       WordlistGeneratorTools()),
-    ("📶",  "Wireless\nAttack",    WirelessAttackTools()),
-    ("🧩",  "SQL\nInject",         SqlInjectionTools()),
-    ("🎣",  "Phishing\nAttack",    PhishingAttackTools()),
-    ("🌐",  "Web\nAttack",         WebAttackTools()),
-    ("🔧",  "Post\nExploit",       PostExploitationTools()),
-    ("🕵",  "Forensics",           ForensicTools()),
-    ("📦",  "Payload\nCreate",     PayloadCreatorTools()),
-    ("🧰",  "Exploit\nFW",         ExploitFrameworkTools()),
-    ("🔁",  "Reverse\nEng",        ReverseEngineeringTools()),
-    ("⚡",  "DDOS\nAttack",        DDOSTools()),
-    ("🖥",  "Remote\nAdmin",       RemoteAdministrationTools()),
-    ("💥",  "XSS\nAttack",         XSSAttackTools()),
-    ("🖼",  "Stegano-\ngraphy",    SteganographyTools()),
-    ("🏢",  "Active\nDir",         ActiveDirectoryTools()),
-    ("☁",   "Cloud\nSec",          CloudSecurityTools()),
-    ("📱",  "Mobile\nSec",         MobileSecurityTools()),
-    ("✨",  "Other\nTools",        OtherTools()),
-    ("♻",   "Update /\nUninstall", ToolManager()),
+    ("🛡",  "Anon Hiding",      AnonSurfTools()),
+    ("🔍",  "Info Gather",      InformationGatheringTools()),
+    ("📚",  "Wordlist Gen",     WordlistGeneratorTools()),
+    ("📶",  "Wireless",         WirelessAttackTools()),
+    ("🧩",  "SQL Inject",       SqlInjectionTools()),
+    ("🎣",  "Phishing",         PhishingAttackTools()),
+    ("🌐",  "Web Attack",       WebAttackTools()),
+    ("🔧",  "Post Exploit",     PostExploitationTools()),
+    ("🕵",  "Forensics",        ForensicTools()),
+    ("📦",  "Payloads",         PayloadCreatorTools()),
+    ("🧰",  "Exploit FW",       ExploitFrameworkTools()),
+    ("🔁",  "Reverse Eng",      ReverseEngineeringTools()),
+    ("⚡",  "DDOS",             DDOSTools()),
+    ("🖥",  "Remote Admin",     RemoteAdministrationTools()),
+    ("💥",  "XSS",              XSSAttackTools()),
+    ("🖼",  "Stego",            SteganographyTools()),
+    ("🏢",  "Active Dir",       ActiveDirectoryTools()),
+    ("☁",   "Cloud Sec",        CloudSecurityTools()),
+    ("📱",  "Mobile Sec",       MobileSecurityTools()),
+    ("✨",  "Other Tools",      OtherTools()),
+    ("♻",   "Update/Remove",    ToolManager()),
 ]
 
 
@@ -393,14 +393,14 @@ class App(tk.Tk):
                     frame, bg=CARD,
                     highlightbackground=BORDER, highlightthickness=1,
                 )
-                card.grid(row=r, column=c, padx=3, pady=3, sticky="nsew")
-                frame.rowconfigure(r, weight=1)
+                card.grid(row=r, column=c, padx=3, pady=2, sticky="nsew")
+                frame.rowconfigure(r, weight=1, minsize=70)
 
-                icon_lbl = tk.Label(card, text=icon, font=("", 26),
-                                    bg=CARD, fg=FG, pady=6)
+                icon_lbl = tk.Label(card, text=icon, font=("", 18),
+                                    bg=CARD, fg=FG, pady=4)
                 icon_lbl.pack()
-                text_lbl = tk.Label(card, text=label, font=F(9, bold=True),
-                                    bg=CARD, fg=CYAN, justify=tk.CENTER, pady=2)
+                text_lbl = tk.Label(card, text=label, font=F(8, bold=True),
+                                    bg=CARD, fg=CYAN, justify=tk.CENTER, pady=1)
                 text_lbl.pack()
 
                 def _go(col=coll):
