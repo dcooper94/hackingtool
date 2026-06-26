@@ -231,6 +231,7 @@ class App(tk.Tk):
 
         self._build_chrome()
         self._push(self._page_main)
+        self.after(800, self._poll_battery)   # first read once the window is up
 
     # ── Chrome ────────────────────────────────────────────────────────────────
 
@@ -263,8 +264,27 @@ class App(tk.Tk):
             command=self.destroy,
         ).pack(side=tk.RIGHT, fill=tk.Y)
 
+        self._bat_lbl = tk.Label(hdr, text="", font=F(8, bold=True),
+                                 bg=PANEL, fg=GREEN)
+        self._bat_lbl.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 4))
+
         self._area = tk.Frame(self, bg=BG)
         self._area.pack(fill=tk.BOTH, expand=True)
+
+    def _poll_battery(self):
+        """Read PiSugar2 battery state and update the header indicator."""
+        try:
+            from battery import read as _bat_read
+            pct, charging = _bat_read()
+            if pct is not None:
+                icon  = "⚡" if charging else "🔋"
+                color = GREEN if pct > 50 else (YELLOW if pct > 20 else RED)
+                self._bat_lbl.config(text=f"{icon}{pct:.0f}%", fg=color)
+            else:
+                self._bat_lbl.config(text="")
+        except Exception:
+            self._bat_lbl.config(text="")
+        self.after(30_000, self._poll_battery)   # refresh every 30 s
 
     def _set_header(self, text: str, back: bool = False):
         self._title_lbl.config(text=text[:28])
