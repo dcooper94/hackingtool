@@ -7,6 +7,7 @@ Run with:  python3 gui.py
 Requirements: python3-tk (apt install python3-tk)
 """
 
+import math
 import os
 import re
 import sys
@@ -45,34 +46,34 @@ from tools.cloud_security        import CloudSecurityTools
 from tools.mobile_security       import MobileSecurityTools
 
 # ── Palette ────────────────────────────────────────────────────────────────────
-BG      = "#060810"   # Near-black background
-PANEL   = "#0d1117"   # Header / bar surfaces
-CARD    = "#161b22"   # Card / row surfaces
-HOVER   = "#1c2535"   # Press highlight
-BORDER  = "#21262d"   # Subtle separators
-FG      = "#e6edf3"   # Primary text
-DIM     = "#6e7681"   # Secondary text
-GREEN   = "#3fb950"   # Installed / success
-CYAN    = "#58a6ff"   # Primary accent
-YELLOW  = "#d29922"   # Warning
-RED     = "#f85149"   # Error / danger
-MAGENTA = "#bc8cff"   # Update / special
-BG_G    = "#0d2b0f"   # Green-tinted surface
-BG_C    = "#0d1f33"   # Cyan-tinted surface
-BG_R    = "#2b0f0d"   # Red-tinted surface
-BG_M    = "#1f0d33"   # Magenta-tinted surface
-TERM_FG = "#00ff41"   # Matrix-green terminal text
+BG      = "#060810"
+PANEL   = "#0d1117"
+CARD    = "#161b22"
+HOVER   = "#1c2535"
+BORDER  = "#21262d"
+FG      = "#e6edf3"
+DIM     = "#6e7681"
+GREEN   = "#3fb950"
+CYAN    = "#58a6ff"
+YELLOW  = "#d29922"
+RED     = "#f85149"
+MAGENTA = "#bc8cff"
+BG_G    = "#0d2b0f"
+BG_C    = "#0d1f33"
+BG_R    = "#2b0f0d"
+BG_M    = "#1f0d33"
+TERM_FG = "#00ff41"
 
-# A gesture is a TAP only if finger moves less than this AND lifts within TAP_MAX_MS
-TAP_THRESHOLD = 50    # pixels — 3.5" screen needs a wide margin to avoid scroll-as-tap
-TAP_MAX_MS    = 280   # ms     — genuine taps are fast; long holds are not taps
+# Tap detection: finger must stay within TAP_THRESHOLD px and lift within TAP_MAX_MS
+TAP_THRESHOLD = 50   # pixels
+TAP_MAX_MS    = 280  # milliseconds
 
 
 def F(size: int, bold: bool = False) -> tuple:
     return ("Courier", size, "bold" if bold else "normal")
 
 
-# ── Terminal emulator detection ─────────────────────────────────────────────────
+# ── Terminal emulator detection ────────────────────────────────────────────────
 def _find_term() -> str | None:
     for t in ("xfce4-terminal", "lxterminal", "xterm", "konsole", "gnome-terminal"):
         if shutil.which(t):
@@ -83,111 +84,44 @@ TERM_BIN = _find_term()
 UV_BIN   = shutil.which("uv")
 
 
-# ── Category registry (pre-instantiated at load time) ──────────────────────────
+# ── Category registry ──────────────────────────────────────────────────────────
 CATEGORIES: list[tuple[str, str, object]] = [
-    ("🛡",  "Anon\nHiding",       AnonSurfTools()),
-    ("🔍",  "Info\nGather",       InformationGatheringTools()),
-    ("📚",  "Wordlist\nGen",      WordlistGeneratorTools()),
-    ("📶",  "Wireless\nAttack",   WirelessAttackTools()),
-    ("🧩",  "SQL\nInject",        SqlInjectionTools()),
-    ("🎣",  "Phishing\nAttack",   PhishingAttackTools()),
-    ("🌐",  "Web\nAttack",        WebAttackTools()),
-    ("🔧",  "Post\nExploit",      PostExploitationTools()),
-    ("🕵",  "Forensics",          ForensicTools()),
-    ("📦",  "Payload\nCreate",    PayloadCreatorTools()),
-    ("🧰",  "Exploit\nFW",        ExploitFrameworkTools()),
-    ("🔁",  "Reverse\nEng",       ReverseEngineeringTools()),
-    ("⚡",  "DDOS\nAttack",       DDOSTools()),
-    ("🖥",  "Remote\nAdmin",      RemoteAdministrationTools()),
-    ("💥",  "XSS\nAttack",        XSSAttackTools()),
-    ("🖼",  "Stegano-\ngraphy",   SteganographyTools()),
-    ("🏢",  "Active\nDir",        ActiveDirectoryTools()),
-    ("☁",   "Cloud\nSec",         CloudSecurityTools()),
-    ("📱",  "Mobile\nSec",        MobileSecurityTools()),
-    ("✨",  "Other\nTools",       OtherTools()),
-    ("♻",   "Update /\nUninstall",ToolManager()),
+    ("🛡",  "Anon\nHiding",        AnonSurfTools()),
+    ("🔍",  "Info\nGather",        InformationGatheringTools()),
+    ("📚",  "Wordlist\nGen",       WordlistGeneratorTools()),
+    ("📶",  "Wireless\nAttack",    WirelessAttackTools()),
+    ("🧩",  "SQL\nInject",         SqlInjectionTools()),
+    ("🎣",  "Phishing\nAttack",    PhishingAttackTools()),
+    ("🌐",  "Web\nAttack",         WebAttackTools()),
+    ("🔧",  "Post\nExploit",       PostExploitationTools()),
+    ("🕵",  "Forensics",           ForensicTools()),
+    ("📦",  "Payload\nCreate",     PayloadCreatorTools()),
+    ("🧰",  "Exploit\nFW",         ExploitFrameworkTools()),
+    ("🔁",  "Reverse\nEng",        ReverseEngineeringTools()),
+    ("⚡",  "DDOS\nAttack",        DDOSTools()),
+    ("🖥",  "Remote\nAdmin",       RemoteAdministrationTools()),
+    ("💥",  "XSS\nAttack",         XSSAttackTools()),
+    ("🖼",  "Stegano-\ngraphy",    SteganographyTools()),
+    ("🏢",  "Active\nDir",         ActiveDirectoryTools()),
+    ("☁",   "Cloud\nSec",          CloudSecurityTools()),
+    ("📱",  "Mobile\nSec",         MobileSecurityTools()),
+    ("✨",  "Other\nTools",        OtherTools()),
+    ("♻",   "Update /\nUninstall", ToolManager()),
 ]
 
 
-# ── Touch-scrollable container ─────────────────────────────────────────────────
-class TouchScroll(tk.Frame):
-    """
-    Canvas-backed frame with touch-drag scrolling.
-
-    Child widgets placed inside `inner` will scroll vertically.  Call
-    `register(widget_list)` on each row / card so that drag gestures originating
-    from those widgets are forwarded to the canvas scroller instead of being
-    swallowed by the widget's own event handling.
-    """
-
-    def __init__(self, parent: tk.Widget, **kw):
-        super().__init__(parent, bg=BG, **kw)
-        self._cv = tk.Canvas(self, bg=BG, highlightthickness=0, bd=0)
-        self._cv.pack(fill=tk.BOTH, expand=True)
-
-        self._inner = tk.Frame(self._cv, bg=BG)
-        _wid = self._cv.create_window(0, 0, window=self._inner, anchor="nw")
-
-        self._cv.bind("<Configure>",
-                      lambda e: self._cv.itemconfigure(_wid, width=e.width))
-        self._inner.bind("<Configure>",
-                         lambda e: self._cv.configure(scrollregion=self._cv.bbox("all")))
-
-        # Scroll when the user drags on empty canvas space
-        self._cv.bind("<ButtonPress-1>", lambda e: self._cv.scan_mark(e.x, e.y))
-        self._cv.bind("<B1-Motion>",     lambda e: self._cv.scan_dragto(e.x, e.y, gain=1))
-        self._cv.bind("<MouseWheel>",
-                      lambda e: self._cv.yview_scroll(int(-1 * e.delta / 120), "units"))
-
-    @property
-    def inner(self) -> tk.Frame:
-        return self._inner
-
-    @property
-    def canvas(self) -> tk.Canvas:
-        return self._cv
-
-    def register(self, widgets: list[tk.Widget]):
-        """
-        Forward scroll gestures from child widgets to the canvas.
-
-        When child widgets consume ButtonPress / B1-Motion events the canvas
-        never sees them.  Binding those events on the child (with add="+") and
-        converting to canvas-relative coordinates restores drag scrolling.
-        """
-        cv = self._cv
-
-        def _mark(e):
-            cx = e.x_root - cv.winfo_rootx()
-            cy = e.y_root - cv.winfo_rooty()
-            cv.scan_mark(cx, cy)
-
-        def _drag(e):
-            cx = e.x_root - cv.winfo_rootx()
-            cy = e.y_root - cv.winfo_rooty()
-            cv.scan_dragto(cx, cy, gain=1)
-
-        for w in widgets:
-            try:
-                w.bind("<ButtonPress-1>", _mark, add="+")
-                w.bind("<B1-Motion>",     _drag, add="+")
-            except tk.TclError:
-                pass
-
-
 # ── Tap helper ─────────────────────────────────────────────────────────────────
-def _bind_tap(widgets: list[tk.Widget], on_tap, sc: TouchScroll | None = None,
+def _bind_tap(widgets: list[tk.Widget], on_tap,
               hl_target: tk.Widget | None = None, hl_color: str = HOVER):
     """
-    Bind a tap gesture (press + release without significant movement) to widgets.
+    Bind a tap gesture to *widgets* — fires on_tap only when the finger lifts
+    within TAP_THRESHOLD px of where it pressed, within TAP_MAX_MS.
 
-    If *sc* is given, drag gestures are forwarded to that TouchScroll so the
-    list keeps scrolling even when a finger starts on a row / card.
-    *hl_target* is highlighted on press and restored on release.
+    Displacement is measured both during motion events AND at release, because
+    some RPi touchscreen drivers skip B1-Motion entirely and go straight from
+    ButtonPress to ButtonRelease even during a scroll gesture.
 
-    Touch-driver note: some RPi touchscreen drivers never emit B1-Motion between
-    a press and release even for a scroll.  We therefore re-check displacement
-    directly in _release so those cases are caught regardless of motion events.
+    Highlight appears after 80 ms so fast scroll-flicks don't flash every item.
     """
     state: dict = {"x": 0, "y": 0, "t": 0.0, "dragging": False, "hl_id": None}
 
@@ -216,8 +150,6 @@ def _bind_tap(widgets: list[tk.Widget], on_tap, sc: TouchScroll | None = None,
         state["t"] = time.monotonic()
         state["dragging"] = False
         _cancel_hl_pending()
-        # Delay the press highlight by 80 ms so scroll-flicks don't produce a
-        # flash on every item the finger passes over.
         if hl_target is not None:
             state["hl_id"] = hl_target.after(
                 80, lambda: (None if state["dragging"] else _hl(hl_color))
@@ -235,7 +167,6 @@ def _bind_tap(widgets: list[tk.Widget], on_tap, sc: TouchScroll | None = None,
         _cancel_hl_pending()
         _hl(CARD)
         elapsed_ms = (time.monotonic() - state["t"]) * 1000
-        # Re-measure displacement here in case motion events were never delivered
         dy = abs(e.y_root - state["y"])
         dx = abs(e.x_root - state["x"])
         moved = dy > TAP_THRESHOLD or dx > TAP_THRESHOLD
@@ -250,9 +181,6 @@ def _bind_tap(widgets: list[tk.Widget], on_tap, sc: TouchScroll | None = None,
         except tk.TclError:
             pass
 
-    if sc is not None:
-        sc.register(widgets)
-
 
 # ── ANSI escape-code stripper ──────────────────────────────────────────────────
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mABCDEFGHJKSTfnsu]|\x1b\][^\x07]*\x07|\r")
@@ -262,20 +190,11 @@ def _strip_ansi(s: str) -> str:
 
 
 # ── pip → uv command rewriter ──────────────────────────────────────────────────
-# Matches:  pip install / pip3 install / python -m pip install / python3 -m pip install
 _PIP_RE = re.compile(r"\b(?:python3?\s+-m\s+)?pip3?\s+install\b")
 
 def _preprocess_cmd(cmd: str) -> str:
-    """
-    Rewrite pip install commands to avoid PEP 668 externally-managed-environment
-    errors on modern Kali / Debian.
-
-    - If uv is available:  pip install X  →  uv pip install --system X
-    - Otherwise:           pip install X  →  pip install --break-system-packages X
-    """
     if not _PIP_RE.search(cmd):
         return cmd
-    # Don't double-add flags if someone already handled it
     if "--system" in cmd or "--break-system-packages" in cmd:
         return cmd
     if UV_BIN:
@@ -297,8 +216,8 @@ def _build_update_cmds(tool) -> list[str]:
                     dn = parts[idx + 1]
                 cmds.append(f"git -C {dn} pull")
         elif "pip install" in ic:
-            upgrade = ic.replace("pip install", "pip install --upgrade")
-            cmds.append(_preprocess_cmd(upgrade))
+            cmds.append(_preprocess_cmd(ic.replace("pip install",
+                                                    "pip install --upgrade")))
         elif "go install" in ic:
             cmds.append(ic)
         elif "gem install" in ic:
@@ -319,7 +238,6 @@ class App(tk.Tk):
 
         self._stack: list[tuple] = []
         self._proc: subprocess.Popen | None = None
-        # Increment to invalidate the current terminal runner thread
         self._term_gen: int = 0
 
         self._build_chrome()
@@ -378,7 +296,7 @@ class App(tk.Tk):
         page_fn(*args)
 
     def _go_back(self):
-        self._term_gen += 1                    # cancel any running terminal thread
+        self._term_gen += 1
         if self._proc and self._proc.poll() is None:
             try:
                 self._proc.terminate()
@@ -390,42 +308,112 @@ class App(tk.Tk):
             self._clear()
             fn(*args)
 
+    # ── Paged view ────────────────────────────────────────────────────────────
+
+    def _show_paged(self, container: tk.Frame, items: list,
+                    build_fn, per_page: int):
+        """
+        Fill *container* with a paginated view of *items*.
+
+        build_fn(page_frame, page_items) is called to populate each page.
+        A fixed bottom bar shows  ◄  page X of Y  ►  navigation buttons.
+        No scrolling; no drag-vs-tap ambiguity.
+        """
+        n_pages = max(1, math.ceil(len(items) / per_page))
+        state = {"p": 0}
+
+        content = tk.Frame(container, bg=BG)
+        content.pack(fill=tk.BOTH, expand=True)
+
+        # ── bottom nav bar ──────────────────────────────────────────────────
+        nav = tk.Frame(container, bg=PANEL, height=46)
+        nav.pack(fill=tk.X)
+        nav.pack_propagate(False)
+
+        def _prev():
+            if state["p"] > 0:
+                state["p"] -= 1
+                _render()
+
+        def _next():
+            if state["p"] < n_pages - 1:
+                state["p"] += 1
+                _render()
+
+        btn_prev = tk.Button(
+            nav, text="   ◄   ", font=F(13, bold=True),
+            bg=PANEL, fg=CYAN, relief=tk.FLAT, bd=0,
+            activebackground=CARD, activeforeground=CYAN,
+            command=_prev,
+        )
+        btn_prev.pack(side=tk.LEFT, fill=tk.Y, padx=4)
+
+        page_lbl = tk.Label(nav, text="", font=F(9), bg=PANEL, fg=DIM)
+        page_lbl.pack(side=tk.LEFT, expand=True)
+
+        btn_next = tk.Button(
+            nav, text="   ►   ", font=F(13, bold=True),
+            bg=PANEL, fg=CYAN, relief=tk.FLAT, bd=0,
+            activebackground=CARD, activeforeground=CYAN,
+            command=_next,
+        )
+        btn_next.pack(side=tk.RIGHT, fill=tk.Y, padx=4)
+
+        def _render():
+            for w in content.winfo_children():
+                w.destroy()
+            p = state["p"]
+            build_fn(content, items[p * per_page:(p + 1) * per_page])
+            page_lbl.config(
+                text=f"page {p + 1} of {n_pages}" if n_pages > 1 else ""
+            )
+            btn_prev.config(
+                state=tk.NORMAL if p > 0         else tk.DISABLED,
+                fg   =CYAN       if p > 0         else DIM,
+            )
+            btn_next.config(
+                state=tk.NORMAL if p < n_pages-1 else tk.DISABLED,
+                fg   =CYAN       if p < n_pages-1 else DIM,
+            )
+
+        _render()
+
     # ── Page: category grid ───────────────────────────────────────────────────
 
     def _page_main(self):
         self._stack = [(self._page_main, ())]
         self._set_header("[ HACKINGTOOL ]", back=False)
 
-        sc = TouchScroll(self._area)
-        sc.pack(fill=tk.BOTH, expand=True)
-        grid = sc.inner
+        COLS = 2  # 2 columns × 3 rows = 6 categories per page
 
-        COLS = 2
-        for i, (icon, label, coll) in enumerate(CATEGORIES):
-            r, c = divmod(i, COLS)
+        def _build(frame, page_items):
+            for i, (icon, label, coll) in enumerate(page_items):
+                r, c = divmod(i, COLS)
 
-            card = tk.Frame(
-                grid, bg=CARD,
-                highlightbackground=BORDER, highlightthickness=1,
-            )
-            card.grid(row=r, column=c, padx=3, pady=3, sticky="nsew")
-            grid.rowconfigure(r, minsize=80)   # guaranteed tap-target height
+                card = tk.Frame(
+                    frame, bg=CARD,
+                    highlightbackground=BORDER, highlightthickness=1,
+                )
+                card.grid(row=r, column=c, padx=3, pady=3, sticky="nsew")
+                frame.rowconfigure(r, weight=1)
 
-            icon_lbl = tk.Label(card, text=icon, font=("", 24),
-                                bg=CARD, fg=FG, pady=6)
-            icon_lbl.pack()
-            text_lbl = tk.Label(card, text=label, font=F(9, bold=True),
-                                bg=CARD, fg=CYAN, justify=tk.CENTER, pady=2)
-            text_lbl.pack()
+                icon_lbl = tk.Label(card, text=icon, font=("", 26),
+                                    bg=CARD, fg=FG, pady=6)
+                icon_lbl.pack()
+                text_lbl = tk.Label(card, text=label, font=F(9, bold=True),
+                                    bg=CARD, fg=CYAN, justify=tk.CENTER, pady=2)
+                text_lbl.pack()
 
-            def _go(col=coll):
-                self._push(self._page_category, col)
+                def _go(col=coll):
+                    self._push(self._page_category, col)
 
-            _bind_tap([card, icon_lbl, text_lbl], _go,
-                      sc=sc, hl_target=card, hl_color=HOVER)
+                _bind_tap([card, icon_lbl, text_lbl], _go,
+                          hl_target=card, hl_color=HOVER)
 
-        for c in range(COLS):
-            grid.columnconfigure(c, weight=1, minsize=130)
+            for c in range(COLS):
+                frame.columnconfigure(c, weight=1, minsize=130)
+
+        self._show_paged(self._area, CATEGORIES, _build, per_page=6)
 
     # ── Page: tool list ───────────────────────────────────────────────────────
 
@@ -438,16 +426,11 @@ class App(tk.Tk):
             else list(getattr(collection, "TOOLS", []))
         )
 
-        sc = TouchScroll(self._area)
-        sc.pack(fill=tk.BOTH, expand=True)
-        p = sc.inner
-
-        # Summary bar
         total = len(tools)
         n_ok  = sum(1 for t in tools
                     if hasattr(t, "is_installed") and t.is_installed)
 
-        bar = tk.Frame(p, bg=PANEL, pady=5, padx=8)
+        bar = tk.Frame(self._area, bg=PANEL, pady=4, padx=8)
         bar.pack(fill=tk.X)
         tk.Label(bar, text=f"{total} tools", font=F(9, bold=True),
                  bg=PANEL, fg=FG).pack(side=tk.LEFT)
@@ -455,105 +438,103 @@ class App(tk.Tk):
                  font=F(9), bg=PANEL, fg=GREEN).pack(side=tk.LEFT)
         tk.Label(bar, text=f"  ✘ {total - n_ok}",
                  font=F(9), bg=PANEL, fg=DIM).pack(side=tk.LEFT)
-        tk.Frame(p, bg=BORDER, height=1).pack(fill=tk.X)
+        tk.Frame(self._area, bg=BORDER, height=1).pack(fill=tk.X)
 
-        for tool in tools:
-            is_sub = hasattr(tool, "_active_tools")
+        def _build(frame, page_items):
+            for tool in page_items:
+                is_sub = hasattr(tool, "_active_tools")
 
-            row = tk.Frame(p, bg=CARD,
-                           highlightbackground=BORDER, highlightthickness=1)
-            row.pack(fill=tk.X, padx=4, pady=1)
+                row = tk.Frame(frame, bg=CARD,
+                               highlightbackground=BORDER, highlightthickness=1)
+                row.pack(fill=tk.X, padx=4, pady=1)
 
-            if is_sub:
-                s_txt, s_fg = "▶", CYAN
-            elif hasattr(tool, "is_installed"):
-                s_txt = "✔" if tool.is_installed else "✘"
-                s_fg  = GREEN if tool.is_installed else DIM
-            else:
-                s_txt, s_fg = "•", DIM
-
-            stat = tk.Label(row, text=s_txt, font=F(12),
-                            bg=CARD, fg=s_fg, width=3, pady=14)
-            stat.pack(side=tk.LEFT)
-
-            mid = tk.Frame(row, bg=CARD)
-            mid.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=6)
-
-            name = tk.Label(mid, text=tool.TITLE, font=F(10, bold=True),
-                            bg=CARD, fg=FG, anchor="w")
-            name.pack(fill=tk.X)
-
-            desc_str = (getattr(tool, "DESCRIPTION", "") or "").strip()
-            sub_widgets: list[tk.Widget] = [stat, mid, name]
-            if desc_str:
-                short = desc_str[:60] + ("…" if len(desc_str) > 60 else "")
-                desc = tk.Label(mid, text=short, font=F(8),
-                                bg=CARD, fg=DIM, anchor="w")
-                desc.pack(fill=tk.X)
-                sub_widgets.append(desc)
-
-            arrow = tk.Label(row, text="›", font=F(15, bold=True),
-                             bg=CARD, fg=CYAN, padx=10)
-            arrow.pack(side=tk.RIGHT)
-            sub_widgets.append(arrow)
-
-            def _go(t=tool):
-                if hasattr(t, "_active_tools"):
-                    self._push(self._page_category, t)
+                if is_sub:
+                    s_txt, s_fg = "▶", CYAN
+                elif hasattr(tool, "is_installed"):
+                    s_txt = "✔" if tool.is_installed else "✘"
+                    s_fg  = GREEN if tool.is_installed else DIM
                 else:
-                    self._push(self._page_tool, t)
+                    s_txt, s_fg = "•", DIM
 
-            _bind_tap([row] + sub_widgets, _go,
-                      sc=sc, hl_target=row, hl_color=HOVER)
+                stat = tk.Label(row, text=s_txt, font=F(12),
+                                bg=CARD, fg=s_fg, width=3, pady=14)
+                stat.pack(side=tk.LEFT)
+
+                mid = tk.Frame(row, bg=CARD)
+                mid.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=6)
+
+                name = tk.Label(mid, text=tool.TITLE, font=F(10, bold=True),
+                                bg=CARD, fg=FG, anchor="w")
+                name.pack(fill=tk.X)
+
+                desc_str = (getattr(tool, "DESCRIPTION", "") or "").strip()
+                sub_widgets: list[tk.Widget] = [stat, mid, name]
+                if desc_str:
+                    short = desc_str[:60] + ("…" if len(desc_str) > 60 else "")
+                    desc = tk.Label(mid, text=short, font=F(8),
+                                    bg=CARD, fg=DIM, anchor="w")
+                    desc.pack(fill=tk.X)
+                    sub_widgets.append(desc)
+
+                arrow = tk.Label(row, text="›", font=F(15, bold=True),
+                                 bg=CARD, fg=CYAN, padx=10)
+                arrow.pack(side=tk.RIGHT)
+                sub_widgets.append(arrow)
+
+                def _go(t=tool):
+                    if hasattr(t, "_active_tools"):
+                        self._push(self._page_category, t)
+                    else:
+                        self._push(self._page_tool, t)
+
+                _bind_tap([row] + sub_widgets, _go,
+                          hl_target=row, hl_color=HOVER)
+
+        self._show_paged(self._area, tools, _build, per_page=4)
 
     # ── Page: tool detail + actions ───────────────────────────────────────────
 
     def _page_tool(self, tool):
         self._set_header(tool.TITLE[:28], back=True)
 
-        sc = TouchScroll(self._area)
-        sc.pack(fill=tk.BOTH, expand=True)
-        p = sc.inner
+        p = tk.Frame(self._area, bg=BG)
+        p.pack(fill=tk.BOTH, expand=True)
 
         installed = hasattr(tool, "is_installed") and tool.is_installed
         sb_bg  = BG_G if installed else CARD
         sb_fg  = GREEN if installed else DIM
         sb_txt = "✔  INSTALLED" if installed else "✘  NOT INSTALLED"
 
-        # Status badge
         sf = tk.Frame(p, bg=sb_bg, padx=10, pady=8)
         sf.pack(fill=tk.X, padx=4, pady=(4, 2))
         tk.Label(sf, text=sb_txt, font=F(10, bold=True),
                  bg=sb_bg, fg=sb_fg).pack(side=tk.LEFT)
 
-        # Description
         raw = (getattr(tool, "DESCRIPTION", "") or "No description.").strip()
-        df = tk.Frame(p, bg=PANEL, padx=10, pady=6)
+        df = tk.Frame(p, bg=PANEL, padx=10, pady=5)
         df.pack(fill=tk.X, padx=4, pady=1)
-        tk.Label(df, text=raw[:240], font=F(9), bg=PANEL, fg=DIM,
+        tk.Label(df, text=raw[:180], font=F(9), bg=PANEL, fg=DIM,
                  wraplength=446, justify=tk.LEFT, anchor="nw").pack(fill=tk.X)
 
-        # Project URL
         url = getattr(tool, "PROJECT_URL", "")
         if url:
             import webbrowser
-            uf = tk.Frame(p, bg=PANEL, padx=10, pady=4)
+            uf = tk.Frame(p, bg=PANEL, padx=10, pady=3)
             uf.pack(fill=tk.X, padx=4)
             lnk = tk.Label(uf, text=f"🔗 {url[:54]}", font=F(8),
                            bg=PANEL, fg=CYAN, cursor="hand2", anchor="w")
             lnk.pack(fill=tk.X)
             lnk.bind("<Button-1>", lambda e: webbrowser.open_new_tab(url))
 
-        # Tags
         tags = getattr(tool, "TAGS", [])
         if tags:
-            tf = tk.Frame(p, bg=BG, padx=6, pady=4)
+            tf = tk.Frame(p, bg=BG, padx=6, pady=3)
             tf.pack(fill=tk.X, padx=4)
             for tag in tags[:8]:
                 tk.Label(tf, text=f" {tag} ", font=F(7, bold=True),
                          bg=BG_C, fg=CYAN, padx=2, pady=1).pack(side=tk.LEFT, padx=1)
 
-        tk.Frame(p, bg=BORDER, height=1).pack(fill=tk.X, padx=4, pady=6)
+        tk.Frame(p, bg=BORDER, height=1).pack(fill=tk.X, padx=4, pady=4)
 
         install_cmds = list(getattr(tool, "INSTALL_COMMANDS", []) or [])
         run_cmds     = list(getattr(tool, "RUN_COMMANDS",     []) or [])
@@ -574,14 +555,13 @@ class App(tk.Tk):
             self._push(self._page_terminal, update_cmds,
                        f"Updating: {tool.TITLE}")
 
-        # Three main action buttons
         btn_row = tk.Frame(p, bg=BG)
         btn_row.pack(fill=tk.X, padx=4)
 
         for lbl, fn, cmds, bg_col, fg_col in [
-            ("INSTALL",  _do_install, install_cmds, BG_G,  GREEN),
-            ("RUN",      _do_run,     run_cmds,     BG_C,  CYAN),
-            ("UPDATE",   _do_update,  install_cmds, BG_M,  MAGENTA),
+            ("INSTALL", _do_install, install_cmds, BG_G,  GREEN),
+            ("RUN",     _do_run,     run_cmds,     BG_C,  CYAN),
+            ("UPDATE",  _do_update,  install_cmds, BG_M,  MAGENTA),
         ]:
             has_cmd = bool(cmds)
             tk.Button(
@@ -589,12 +569,11 @@ class App(tk.Tk):
                 bg=bg_col if has_cmd else CARD,
                 fg=fg_col if has_cmd else DIM,
                 activebackground=CARD, activeforeground=fg_col,
-                relief=tk.FLAT, bd=0, pady=12,
+                relief=tk.FLAT, bd=0, pady=14,
                 state=tk.NORMAL if has_cmd else tk.DISABLED,
                 command=fn,
             ).pack(side=tk.LEFT, expand=True, fill=tk.X, padx=2, pady=2)
 
-        # Any extra custom OPTIONS defined by the tool (beyond the standard four)
         std = {"Install", "Run", "Update", "Open Folder"}
         extra = [o for o in getattr(tool, "OPTIONS", []) if o[0] not in std]
         if extra:
@@ -620,7 +599,6 @@ class App(tk.Tk):
         outer = tk.Frame(self._area, bg=BG)
         outer.pack(fill=tk.BOTH, expand=True)
 
-        # Matrix-green terminal output area
         txt_wrap = tk.Frame(outer, bg="#000000")
         txt_wrap.pack(fill=tk.BOTH, expand=True)
 
@@ -631,7 +609,7 @@ class App(tk.Tk):
             selectbackground="#003300",
             insertbackground=TERM_FG,
             relief=tk.FLAT, bd=4, wrap=tk.WORD,
-            spacing1=2,    # pixels above each line
+            spacing1=2,
             state=tk.DISABLED,
         )
         vsb = tk.Scrollbar(
@@ -647,7 +625,6 @@ class App(tk.Tk):
         txt.tag_configure("err",  foreground=RED)
         txt.tag_configure("info", foreground=YELLOW)
 
-        # Control bar
         ctrl = tk.Frame(outer, bg=PANEL, height=36)
         ctrl.pack(fill=tk.X)
         ctrl.pack_propagate(False)
@@ -674,7 +651,7 @@ class App(tk.Tk):
                 except Exception:
                     pass
 
-        def _clear():
+        def _clear_txt():
             try:
                 txt.config(state=tk.NORMAL)
                 txt.delete("1.0", tk.END)
@@ -693,18 +670,21 @@ class App(tk.Tk):
             ctrl, text="CLEAR", font=F(9),
             bg=CARD, fg=DIM, activebackground=BORDER, activeforeground=FG,
             relief=tk.FLAT, bd=0, padx=8, pady=0,
-            command=_clear,
+            command=_clear_txt,
         ).pack(side=tk.LEFT, fill=tk.Y, padx=2, pady=4)
 
         if not commands:
             self.after(10, _write, "No commands to run.\n", "err")
             return
 
-        # Show which pip backend will be used
         if UV_BIN:
-            self.after(10, _write, f"[uv {UV_BIN}  —  pip installs → uv pip install --system]\n", "info")
+            self.after(10, _write,
+                       f"[uv {UV_BIN}  —  pip installs → uv pip install --system]\n",
+                       "info")
         else:
-            self.after(10, _write, "[uv not found  —  pip installs → pip --break-system-packages]\n", "info")
+            self.after(10, _write,
+                       "[uv not found  —  pip installs → pip --break-system-packages]\n",
+                       "info")
 
         def _runner():
             for cmd in commands:
@@ -743,7 +723,6 @@ class App(tk.Tk):
     # ── Helper: launch commands in a system terminal window ───────────────────
 
     def _open_term(self, commands: list[str]):
-        """Open an interactive terminal emulator window for the given commands."""
         bash = "; ".join(commands)
         hold = (
             f"bash -c {bash!r}; "
@@ -768,12 +747,10 @@ class App(tk.Tk):
             else:
                 subprocess.Popen([t, "-e", hold])
         except Exception:
-            # Fallback: run in the in-app terminal
             self._push(self._page_terminal, commands, "Terminal")
 
 
 # ── Entry point ────────────────────────────────────────────────────────────────
-
 def main():
     App().mainloop()
 
