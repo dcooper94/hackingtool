@@ -262,16 +262,8 @@ class App(tk.Tk):
         self.title("HackingTool")
         self.configure(bg=BG)
 
-        # Measure the physical display before anything else is drawn
-        self.update_idletasks()
-        self._SW = self.winfo_screenwidth()
-        self._SH = self.winfo_screenheight()
-
-        # Cover the whole display without a title bar (kiosk mode)
-        self.geometry(f"{self._SW}x{self._SH}+0+0")
-        self.overrideredirect(True)          # removes OS window decoration
-        # Escape restores the title bar (dev escape hatch)
-        self.bind("<Escape>", lambda e: self.overrideredirect(False))
+        self.attributes("-fullscreen", True)
+        self.bind("<Escape>", lambda e: self.attributes("-fullscreen", False))
 
         self._stack: list[tuple] = []
         self._proc: subprocess.Popen | None = None
