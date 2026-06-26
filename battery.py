@@ -3,10 +3,10 @@
 PiSugar2 Pro battery reader — two backends, tried in order:
 
 1. pisugar-server daemon  (unix socket / TCP)
-   Install from GitHub releases:
-     https://github.com/PiSugar/pisugar-server-rs/releases
-   Download the ARM64 .deb, then:
-     sudo dpkg -i pisugar-power-manager_*_arm64.deb
+   Install with:
+     wget https://cdn.pisugar.com/release/pisugar-power-manager.sh
+     bash pisugar-power-manager.sh -c release
+   Then enable on boot:
      sudo systemctl enable --now pisugar-server
 
 2. Direct I2C via smbus2  (works without the daemon)
