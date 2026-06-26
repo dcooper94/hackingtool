@@ -19,6 +19,7 @@ import shutil
 import threading
 import subprocess
 import tkinter as tk
+from datetime import datetime
 from pathlib import Path
 
 # ── Bootstrap ──────────────────────────────────────────────────────────────────
@@ -231,7 +232,8 @@ class App(tk.Tk):
 
         self._build_chrome()
         self._push(self._page_main)
-        self.after(800, self._poll_battery)   # first read once the window is up
+        self.after(800, self._poll_battery)
+        self._tick_clock()
 
     # ── Chrome ────────────────────────────────────────────────────────────────
 
@@ -268,8 +270,16 @@ class App(tk.Tk):
                                  bg=PANEL, fg=GREEN)
         self._bat_lbl.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 4))
 
+        self._clock_lbl = tk.Label(hdr, text="", font=F(8), bg=PANEL, fg=DIM)
+        self._clock_lbl.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 8))
+
         self._area = tk.Frame(self, bg=BG)
         self._area.pack(fill=tk.BOTH, expand=True)
+
+    def _tick_clock(self):
+        now = datetime.now()
+        self._clock_lbl.config(text=now.strftime("%H:%M  %d %b"))
+        self.after(1000, self._tick_clock)
 
     def _poll_battery(self):
         """Spawn a background thread to read battery, then update header label."""
