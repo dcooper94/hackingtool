@@ -18,6 +18,7 @@ PiSugar2 Pro battery reader — two backends, tried in order:
 Either backend failing is handled silently — read() returns (None, False).
 """
 
+import math
 import socket
 from typing import Optional
 
@@ -47,7 +48,9 @@ def _read_daemon() -> tuple[Optional[float], bool]:
     r = _daemon_query("get battery")
     if r and r.startswith("battery:"):
         try:
-            pct = float(r.split(":", 1)[1].strip())
+            val = float(r.split(":", 1)[1].strip())
+            if not math.isnan(val):
+                pct = val
         except ValueError:
             pass
 

@@ -272,19 +272,29 @@ class App(tk.Tk):
         self._area.pack(fill=tk.BOTH, expand=True)
 
     def _poll_battery(self):
-        """Read PiSugar2 battery state and update the header indicator."""
-        try:
-            from battery import read as _bat_read
-            pct, charging = _bat_read()
-            if pct is not None:
-                icon  = "⚡" if charging else "🔋"
-                color = GREEN if pct > 50 else (YELLOW if pct > 20 else RED)
-                self._bat_lbl.config(text=f"{icon}{pct:.0f}%", fg=color)
-            else:
-                self._bat_lbl.config(text="")
-        except Exception:
-            self._bat_lbl.config(text="")
-        self.after(30_000, self._poll_battery)   # refresh every 30 s
+        """Spawn a background thread to read battery, then update header label."""
+        def _do_read():
+            try:
+                from battery import read as _bat_read
+                pct, charging = _bat_read()
+            except Exception:
+                pct, charging = None, False
+
+            def _update():
+                try:
+                    if pct is not None:
+                        icon  = "⚡" if charging else "🔋"
+                        color = GREEN if pct > 50 else (YELLOW if pct > 20 else RED)
+                        self._bat_lbl.config(text=f"{icon}{pct:.0f}%", fg=color)
+                    else:
+                        self._bat_lbl.config(text="")
+                except tk.TclError:
+                    pass
+
+            self.after(0, _update)
+
+        threading.Thread(target=_do_read, daemon=True).start()
+        self.after(30_000, self._poll_battery)
 
     def _set_header(self, text: str, back: bool = False):
         self._title_lbl.config(text=text[:28])
