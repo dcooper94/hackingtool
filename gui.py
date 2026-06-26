@@ -64,8 +64,8 @@ BG_M    = "#1f0d33"   # Magenta-tinted surface
 TERM_FG = "#00ff41"   # Matrix-green terminal text
 
 # A gesture is a TAP only if finger moves less than this AND lifts within TAP_MAX_MS
-TAP_THRESHOLD = 30    # pixels
-TAP_MAX_MS    = 500   # milliseconds
+TAP_THRESHOLD = 50    # pixels — 3.5" screen needs a wide margin to avoid scroll-as-tap
+TAP_MAX_MS    = 280   # ms     — genuine taps are fast; long holds are not taps
 
 
 def F(size: int, bold: bool = False) -> tuple:
@@ -184,8 +184,12 @@ def _bind_tap(widgets: list[tk.Widget], on_tap, sc: TouchScroll | None = None,
     If *sc* is given, drag gestures are forwarded to that TouchScroll so the
     list keeps scrolling even when a finger starts on a row / card.
     *hl_target* is highlighted on press and restored on release.
+
+    Touch-driver note: some RPi touchscreen drivers never emit B1-Motion between
+    a press and release even for a scroll.  We therefore re-check displacement
+    directly in _release so those cases are caught regardless of motion events.
     """
-    state: dict = {"y": 0, "t": 0.0, "dragging": False}
+    state: dict = {"x": 0, "y": 0, "t": 0.0, "dragging": False, "hl_id": None}
 
     def _hl(bg: str):
         if hl_target is None:
@@ -197,21 +201,45 @@ def _bind_tap(widgets: list[tk.Widget], on_tap, sc: TouchScroll | None = None,
         except tk.TclError:
             pass
 
+    def _cancel_hl_pending():
+        aid = state["hl_id"]
+        if aid is not None:
+            state["hl_id"] = None
+            try:
+                hl_target.after_cancel(aid)
+            except Exception:
+                pass
+
     def _press(e):
+        state["x"] = e.x_root
         state["y"] = e.y_root
         state["t"] = time.monotonic()
         state["dragging"] = False
-        _hl(hl_color)
+        _cancel_hl_pending()
+        # Delay the press highlight by 80 ms so scroll-flicks don't produce a
+        # flash on every item the finger passes over.
+        if hl_target is not None:
+            state["hl_id"] = hl_target.after(
+                80, lambda: (None if state["dragging"] else _hl(hl_color))
+            )
 
     def _motion(e):
-        if abs(e.y_root - state["y"]) > TAP_THRESHOLD:
+        dy = abs(e.y_root - state["y"])
+        dx = abs(e.x_root - state["x"])
+        if not state["dragging"] and (dy > TAP_THRESHOLD or dx > TAP_THRESHOLD):
             state["dragging"] = True
-            _hl(CARD)   # remove highlight the moment scrolling is detected
+            _cancel_hl_pending()
+            _hl(CARD)
 
     def _release(e):
+        _cancel_hl_pending()
         _hl(CARD)
         elapsed_ms = (time.monotonic() - state["t"]) * 1000
-        if not state["dragging"] and elapsed_ms < TAP_MAX_MS:
+        # Re-measure displacement here in case motion events were never delivered
+        dy = abs(e.y_root - state["y"])
+        dx = abs(e.x_root - state["x"])
+        moved = dy > TAP_THRESHOLD or dx > TAP_THRESHOLD
+        if not state["dragging"] and not moved and elapsed_ms < TAP_MAX_MS:
             on_tap()
 
     for w in widgets:
