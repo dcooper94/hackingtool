@@ -4,13 +4,13 @@
 
 <p><b>All-in-One Hacking Tool for Security Researchers & Pentesters</b></p>
 
-[![License](https://img.shields.io/github/license/Z4nzu/hackingtool)](LICENSE)&nbsp;
+[![License](https://img.shields.io/github/license/dcooper94/hackingtool)](LICENSE)&nbsp;
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)&nbsp;
 [![Version](https://img.shields.io/badge/v2.0.0-00FF88?style=flat-square)](#)&nbsp;
-[![Stars](https://img.shields.io/github/stars/Z4nzu/hackingtool?style=flat-square&color=yellow)](https://github.com/Z4nzu/hackingtool/stargazers)&nbsp;
-[![Forks](https://img.shields.io/github/forks/Z4nzu/hackingtool?style=flat-square&color=blue)](https://github.com/Z4nzu/hackingtool/network/members)&nbsp;
-[![Issues](https://img.shields.io/github/issues/Z4nzu/hackingtool?style=flat-square&color=red)](https://github.com/Z4nzu/hackingtool/issues)&nbsp;
-[![Last Commit](https://img.shields.io/github/last-commit/Z4nzu/hackingtool?style=flat-square&color=00FF88)](https://github.com/Z4nzu/hackingtool/commits/master)
+[![Stars](https://img.shields.io/github/stars/dcooper94/hackingtool?style=flat-square&color=yellow)](https://github.com/dcooper94/hackingtool/stargazers)&nbsp;
+[![Forks](https://img.shields.io/github/forks/dcooper94/hackingtool?style=flat-square&color=blue)](https://github.com/dcooper94/hackingtool/network/members)&nbsp;
+[![Issues](https://img.shields.io/github/issues/dcooper94/hackingtool?style=flat-square&color=red)](https://github.com/dcooper94/hackingtool/issues)&nbsp;
+[![Last Commit](https://img.shields.io/github/last-commit/dcooper94/hackingtool?style=flat-square&color=00FF88)](https://github.com/dcooper94/hackingtool/commits/hacktool-gui-v2)
 
 ![](https://img.shields.io/badge/20_Categories-7B61FF?style=for-the-badge)
 ![](https://img.shields.io/badge/185+_Tools-00FF88?style=for-the-badge)
@@ -19,7 +19,7 @@
 
 <a href="#installation"><img src="https://img.shields.io/badge/Install_Now-00FF88?style=for-the-badge&logo=rocket&logoColor=black" alt="Install Now"></a>&nbsp;
 <a href="#quick-commands"><img src="https://img.shields.io/badge/Quick_Commands-7B61FF?style=for-the-badge&logo=terminal&logoColor=white" alt="Quick Commands"></a>&nbsp;
-<a href="https://github.com/Z4nzu/hackingtool/issues/new?template=tool_request.md"><img src="https://img.shields.io/badge/Suggest_a_Tool-FF61DC?style=for-the-badge&logo=plus&logoColor=white" alt="Suggest a Tool"></a>
+<a href="https://github.com/dcooper94/hackingtool/issues/new?template=tool_request.md"><img src="https://img.shields.io/badge/Suggest_a_Tool-FF61DC?style=for-the-badge&logo=plus&logoColor=white" alt="Suggest a Tool"></a>
 
 </div>
 
@@ -138,7 +138,7 @@
 ## 📚 Wordlist Generator
 
 - [Cupp](https://github.com/Mebus/cupp)
-- [WordlistCreator](https://github.com/Z4nzu/wlcreator)
+- [WordlistCreator](https://github.com/dcooper94/wlcreator)
 - [Goblin WordGenerator](https://github.com/UndeadSec/GoblinWordGenerator)
 - [Password list (1.4B)](https://github.com/Viralmaniar/SMWYG-Show-Me-What-You-Got)
 - [Hashcat](https://github.com/hashcat/hashcat) ★
@@ -155,8 +155,8 @@
 - [Fluxion](https://github.com/FluxionNetwork/fluxion)
 - [Wifiphisher](https://github.com/wifiphisher/wifiphisher)
 - [Wifite](https://github.com/derv82/wifite2)
-- [EvilTwin](https://github.com/Z4nzu/fakeap)
-- [Fastssh](https://github.com/Z4nzu/fastssh)
+- [EvilTwin](https://github.com/dcooper94/fakeap)
+- [Fastssh](https://github.com/dcooper94/fastssh)
 - Howmanypeople
 - [Airgeddon](https://github.com/v1s1t0r1sh3r3/airgeddon) ★
 - [hcxdumptool](https://github.com/ZerBea/hcxdumptool) ★
@@ -438,7 +438,7 @@ Required: class in `tools/*.py`, TITLE, DESCRIPTION, INSTALL/RUN commands, SUPPO
 ### One-liner (recommended)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Z4nzu/hackingtool/master/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/dcooper94/hackingtool/hacktool-gui-v2/install.sh | sudo bash
 ```
 
 Handles everything — prerequisites, clone, venv, launcher.
@@ -449,7 +449,7 @@ Handles everything — prerequisites, clone, venv, launcher.
 ### Manual
 
 ```bash
-git clone https://github.com/Z4nzu/hackingtool.git
+git clone --branch hacktool-gui-v2 https://github.com/dcooper94/hackingtool.git
 cd hackingtool
 sudo python3 install.py
 ```
@@ -503,9 +503,9 @@ pip install -r requirements.txt
 ## Star History
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Z4nzu/hackingtool&type=Date&theme=dark" />
-  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Z4nzu/hackingtool&type=Date" />
-  <img alt="HackingTool Star History Chart" src="https://api.star-history.com/svg?repos=Z4nzu/hackingtool&type=Date" />
+  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=dcooper94/hackingtool&type=Date&theme=dark" />
+  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=dcooper94/hackingtool&type=Date" />
+  <img alt="HackingTool Star History Chart" src="https://api.star-history.com/svg?repos=dcooper94/hackingtool&type=Date" />
 </picture>
 
 ---
@@ -519,9 +519,9 @@ If this project helps you, consider buying me a coffee:
 ## Social
 
 [![Twitter](https://img.shields.io/badge/Twitter-Follow-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://twitter.com/_Zinzu07)
-[![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Z4nzu/)
+[![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/dcooper94/)
 
 > **For authorized security testing only.**
 > Thanks to all original authors of the tools included in hackingtool.
 
-Your favourite tool is not listed? [Suggest it here](https://github.com/Z4nzu/hackingtool/issues/new?template=tool_request.md)
+Your favourite tool is not listed? [Suggest it here](https://github.com/dcooper94/hackingtool/issues/new?template=tool_request.md)

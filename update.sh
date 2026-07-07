@@ -2,6 +2,8 @@
 set -euo pipefail
 
 INSTALL_DIR="/usr/share/hackingtool"
+REPO_URL="https://github.com/dcooper94/hackingtool.git"
+REPO_BRANCH="hacktool-gui-v2"
 
 if [[ $EUID -ne 0 ]]; then
     echo "[ERROR] Run as root: sudo bash update.sh"
@@ -20,9 +22,16 @@ if ! curl -sSf --max-time 10 https://github.com > /dev/null; then
 fi
 echo "[✔] Internet OK"
 
-echo "[*] Pulling latest changes..."
+echo "[*] Pulling latest changes from $REPO_URL ($REPO_BRANCH)..."
 git -C "$INSTALL_DIR" config --local safe.directory "$INSTALL_DIR"
-git -C "$INSTALL_DIR" pull --rebase
+if git -C "$INSTALL_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git -C "$INSTALL_DIR" remote set-url origin "$REPO_URL" || true
+    git -C "$INSTALL_DIR" fetch --depth 1 origin "$REPO_BRANCH"
+    git -C "$INSTALL_DIR" checkout -B "$REPO_BRANCH" "origin/$REPO_BRANCH"
+else
+    echo "[ERROR] $INSTALL_DIR is not a git checkout. Re-run the one-liner installer."
+    exit 1
+fi
 
 echo "[*] Updating Python dependencies..."
 if [[ -f "$INSTALL_DIR/venv/bin/pip" ]]; then

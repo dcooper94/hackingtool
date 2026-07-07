@@ -3,10 +3,12 @@ import platform
 import shutil as _shutil
 
 # ── Repository ────────────────────────────────────────────────────────────────
-REPO_OWNER   = "Z4nzu"
+REPO_OWNER   = "dcooper94"
 REPO_NAME    = "hackingtool"
+REPO_BRANCH  = "hacktool-gui-v2"
 REPO_URL     = f"https://github.com/{REPO_OWNER}/{REPO_NAME}.git"
 REPO_WEB_URL = f"https://github.com/{REPO_OWNER}/{REPO_NAME}"
+REPO_BRANCH_WEB_URL = f"{REPO_WEB_URL}/tree/{REPO_BRANCH}"
 
 # ── Versioning ────────────────────────────────────────────────────────────────
 VERSION         = "2.0.0"

@@ -4,14 +4,14 @@
 
 **All-in-One Hacking Tool for Security Researchers & Pentesters**
 
-[![License](https://img.shields.io/github/license/Z4nzu/hackingtool?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/github/license/dcooper94/hackingtool?style=flat-square)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![Version](https://img.shields.io/badge/version-2.0.0-brightgreen?style=flat-square)](#)
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20Kali%20%7C%20Parrot%20%7C%20macOS-informational?style=flat-square)](#)
-[![Stars](https://img.shields.io/github/stars/Z4nzu/hackingtool?style=flat-square)](https://github.com/Z4nzu/hackingtool/stargazers)
-[![Forks](https://img.shields.io/github/forks/Z4nzu/hackingtool?style=flat-square)](https://github.com/Z4nzu/hackingtool/network/members)
-[![Issues](https://img.shields.io/github/issues/Z4nzu/hackingtool?style=flat-square)](https://github.com/Z4nzu/hackingtool/issues)
-[![Last Commit](https://img.shields.io/github/last-commit/Z4nzu/hackingtool?style=flat-square)](https://github.com/Z4nzu/hackingtool/commits/master)
+[![Stars](https://img.shields.io/github/stars/dcooper94/hackingtool?style=flat-square)](https://github.com/dcooper94/hackingtool/stargazers)
+[![Forks](https://img.shields.io/github/forks/dcooper94/hackingtool?style=flat-square)](https://github.com/dcooper94/hackingtool/network/members)
+[![Issues](https://img.shields.io/github/issues/dcooper94/hackingtool?style=flat-square)](https://github.com/dcooper94/hackingtool/issues)
+[![Last Commit](https://img.shields.io/github/last-commit/dcooper94/hackingtool?style=flat-square)](https://github.com/dcooper94/hackingtool/commits/hacktool-gui-v2)
 
 </div>
 
@@ -78,7 +78,7 @@ Issues or PRs that don't follow the title format may be closed without review.
 ### One-liner (recommended)
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/Z4nzu/hackingtool/master/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/dcooper94/hackingtool/hacktool-gui-v2/install.sh | sudo bash
 ```
 
 This handles everything — installs prerequisites, clones the repo, sets up a venv, and creates the `hackingtool` command.
@@ -86,7 +86,7 @@ This handles everything — installs prerequisites, clones the repo, sets up a v
 ### Manual install
 
 ```bash
-git clone https://github.com/Z4nzu/hackingtool.git
+git clone --branch hacktool-gui-v2 https://github.com/dcooper94/hackingtool.git
 cd hackingtool
 sudo python3 install.py   # detects local source, copies instead of re-cloning
 ```
@@ -101,7 +101,7 @@ hackingtool
 ### Step 1 — Clone the repository
 
 ```bash
-git clone https://github.com/Z4nzu/hackingtool.git
+git clone --branch hacktool-gui-v2 https://github.com/dcooper94/hackingtool.git
 cd hackingtool
 ```
 
@@ -161,9 +161,9 @@ pip install -r requirements.txt
 ## Star History
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Z4nzu/hackingtool&type=Date&theme=dark" />
-  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Z4nzu/hackingtool&type=Date" />
-  <img alt="HackingTool Star History Chart" src="https://api.star-history.com/svg?repos=Z4nzu/hackingtool&type=Date" />
+  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=dcooper94/hackingtool&type=Date&theme=dark" />
+  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=dcooper94/hackingtool&type=Date" />
+  <img alt="HackingTool Star History Chart" src="https://api.star-history.com/svg?repos=dcooper94/hackingtool&type=Date" />
 </picture>
 
 ---
@@ -171,9 +171,9 @@ pip install -r requirements.txt
 ## Social
 
 [![Twitter](https://img.shields.io/twitter/url?color=%231DA1F2&label=follow&logo=twitter&logoColor=%231DA1F2&style=flat-square&url=https%3A%2F%2Ftwitter.com%2F_Zinzu07)](https://twitter.com/_Zinzu07)
-[![GitHub](https://img.shields.io/badge/-GitHub-181717?style=flat-square&logo=github&link=https://github.com/Z4nzu/)](https://github.com/Z4nzu/)
+[![GitHub](https://img.shields.io/badge/-GitHub-181717?style=flat-square&logo=github&link=https://github.com/dcooper94/)](https://github.com/dcooper94/)
 
 > **Please don't use for illegal activity.**
 > Thanks to all original authors of the tools included in hackingtool.
 
-Your favourite tool is not listed? [Suggest it here](https://github.com/Z4nzu/hackingtool/issues/new?template=tool_request.md)
+Your favourite tool is not listed? [Suggest it here](https://github.com/dcooper94/hackingtool/issues/new?template=tool_request.md)

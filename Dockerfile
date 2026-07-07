@@ -4,7 +4,7 @@ FROM kalilinux/kali-rolling:latest
 
 LABEL org.opencontainers.image.title="hackingtool" \
       org.opencontainers.image.description="All-in-One Hacking Tool for Security Researchers" \
-      org.opencontainers.image.source="https://github.com/Z4nzu/hackingtool" \
+      org.opencontainers.image.source="https://github.com/dcooper94/hackingtool/tree/hacktool-gui-v2" \
       org.opencontainers.image.licenses="MIT"
 
 # Install system dependencies
